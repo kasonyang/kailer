@@ -1,0 +1,122 @@
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.mail.MessagingException;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
+
+/**
+ *
+ * @author Kason Yang
+ */
+public class {
+
+    private final static String APP_NAME = "kailer";
+
+    private final static String SYNTAX = "kailer [options] recipient";
+    
+    private final static String DEFAULT_ENCODING = "utf8";
+
+    private Options options;
+
+    private void printUsage() {
+        printVersion();
+        var formatter = new HelpFormatter();
+        formatter.printHelp(SYNTAX, options);
+    }
+
+    public static void main(String[] args) throws IOException {
+        new App().run(args);
+    }
+    
+    public constructor(){
+        options = new Options()
+            .addOption("h", "help", false, "show this help message")
+            .addOption("v", "version", false, "show app's version and quit")
+            .addOption(null,"verbose",false,"verbose mode")
+            .addOption(null,"no-body", false,"mail without body")
+            .addOption("b","body" ,true , "mail body from file")
+            .addOption("s", "subject", true, "subject");
+    }
+
+    private void run(String[] args) throws IOException {
+        var parser = new DefaultParser();
+        var cli = parser.parse(options, args, true);
+        if (cli.hasOption("help")) {
+            printUsage();
+            return;
+        }
+        if (cli.hasOption("version")) {
+            printVersion();
+            return;
+        }
+        execute(cli);
+    }
+
+    private void execute(CommandLine cli) throws IOException {
+        var configDir = new File(FileUtils.getUserDirectory(), ".kailer");
+        var configFile = new File(configDir, "main.properties");
+        var properties = new Properties();
+        if (configFile.exists()) {
+            try {
+                properties.load(new FileInputStream(configFile));
+            } catch (IOException ex) {
+                Logger.getLogger(App.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        } else {
+            System.out.println(configFile.getName() + " not found!");
+            return;
+        }
+        var subject = cli.getOptionValue("subject", "");
+        var receivers = cli.getArgs();
+        if (receivers.length == 0) {
+            System.err.println("missing receivers");
+            return;
+        }
+        if (cli.hasOption("verbose")) {
+            properties.put("mail.debug", true);
+        }
+        var user = properties.getProperty("user");
+        var passwd = properties.getProperty("password");
+        var mailer = Mailer.create(properties, user, passwd);
+        var toList = cli.getArgs();
+        try {
+            mailer.send(subject, this.getBody(cli), toList);
+            System.out.println("mail was sent to " + Arrays.toString(toList));
+        } catch (MessagingException ex) {
+            Logger.getLogger(App.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    private void printVersion() {
+        var prop = new Properties();
+        var is = this.getClass().getResourceAsStream("/default.properties");
+        if (is != null) {
+            try {
+                prop.load(is);
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+        }
+        var version = prop.getProperty("version", "UNKNOWN");
+        var buildtime = prop.getProperty("buildtime", "UNKNOWN");
+        System.out.println(String.format("%s %s\nBuild time : %s",[APP_NAME, version, buildtime]));
+    }
+    
+    private String getBody(CommandLine cli) throws IOException{
+        if (cli.hasOption("no-body")){
+            return "";
+        } else if (cli.hasOption("body")) {
+            var bodyFile = new File(cli.getOptionValue("body"));
+            return FileUtils.readFileToString(bodyFile,DEFAULT_ENCODING);
+        } else {
+            return IOUtils.toString(System.in, DEFAULT_ENCODING);
+        }
+    }
+
+}
+

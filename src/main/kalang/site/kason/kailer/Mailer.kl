@@ -1,0 +1,54 @@
+import javax.mail.Message;
+import javax.mail.MessagingException;
+import javax.mail.Multipart;
+import javax.mail.Session;
+import javax.mail.Transport;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeBodyPart;
+import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeMultipart;
+import javax.mail.Message$RecipientType;
+
+public class {
+
+    private UserPasswordAuthenticator auth;
+
+    private Properties props;
+
+    private String user;
+
+    public static Mailer create(Properties props, String user, String password) {
+        var mailer = new Mailer(props, user, password);
+        return mailer;
+    }
+
+    public constructor(Properties props, String user, String password) {
+        this.props = props;
+        this.user = user;
+        auth = new UserPasswordAuthenticator(user, password);
+    }
+    
+    public void send(String subject, String content, String[] to) throws MessagingException {
+        send(subject,content,to,user);
+    }
+
+    public void send(String subject, String content, String[] to,String from) throws MessagingException {
+        var session = Session.getDefaultInstance(props, auth);
+        var msg = new MimeMessage(session);
+        msg.setFrom(new InternetAddress(from));
+        var addresses = new InternetAddress[to.length];
+        for (int i = 0; i < addresses.length; i++) {
+            addresses[i] = new InternetAddress(to[i]);
+        }
+        msg.setRecipients(Message$RecipientType.TO, addresses);
+        msg.setSubject(subject);
+        var mp = new MimeMultipart();
+        var mbpContent = new MimeBodyPart();
+        mbpContent.setText(content);
+        mp.addBodyPart(mbpContent);
+        msg.setContent(mp);
+        msg.setSentDate(new Date());
+        Transport.send(msg);
+    }
+
+}
