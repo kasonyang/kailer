@@ -6,3 +6,4 @@
 /build/
 /.idea/
 kailer.iml
+/.nb-gradle/
